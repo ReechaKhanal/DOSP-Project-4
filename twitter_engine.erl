@@ -1,8 +1,37 @@
--module(engine).
+-module(twitter_engine).
 -export[start/0].
 
 start() ->
-    "Twitter Engine Clone".
+    io:fwrite("Twitter Engine Clone"),
+    {ok, ListenSocket} = gen_tcp:listen(1204, [binary, {keepalive, true}, {reuseaddr, true}, {active, once}]),
+    await_connections(ListenSocket).
+
+await_connections(Listen) ->
+    {ok, Socket} = gen_tcp:accept(Listen),
+    %ok = gen_tcp:send(Socket, io_lib:format("~p",[X])),
+    spawn(fun() -> await_connections(Listen) end),
+    conn_loop(Socket).
+
+conn_loop(Socket) ->
+    io:fwrite("this is where the twitter engine receives requests and acts on it"),
+    receive 
+        {register_account, Socket, Data} ->
+            io:fwrite("Client wants to register an account");
+        {send_tweet, Socket, Data} ->
+            io:fwrite("Client wants to register an account");
+        {subscribe, Socket, Data} ->
+            io:fwrite("Client wants to register an account");
+        {re_tweet, Socket, Data} ->
+            io:fwrite("Client wants to register an account");
+        {query_tweet, Socket, Data} ->
+            io:fwrite("Client wants to register an account");
+        {tcp_closed, Socket} ->
+            closed
+    end.    
+
+
+
+
 
 % Implement a twitter-like engine with following functionality:
 % 1. Register Account
