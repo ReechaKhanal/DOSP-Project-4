@@ -2,19 +2,23 @@
 -export[start/0].
 
 start() ->
-    io:fwrite("Twitter Engine Clone"),
+    io:fwrite("\n\n Howdy!!, I am The Twitter Engine Clone \n\n"),
     {ok, ListenSocket} = gen_tcp:listen(1204, [binary, {keepalive, true}, {reuseaddr, true}, {active, once}]),
     await_connections(ListenSocket).
 
 await_connections(Listen) ->
     {ok, Socket} = gen_tcp:accept(Listen),
-    %ok = gen_tcp:send(Socket, io_lib:format("~p",[X])),
+    ok = gen_tcp:send(Socket, "YIP"),
     spawn(fun() -> await_connections(Listen) end),
     conn_loop(Socket).
 
 conn_loop(Socket) ->
-    io:fwrite("this is where the twitter engine receives requests and acts on it"),
-    receive 
+    io:fwrite("Uh Oh, I can sense someone trying to connect to me!\n\n"),
+    receive
+        {Socket, Data} ->
+            io:fwrite("\n"),
+            io:fwrite(Data),
+            io:fwrite("\n");
         {register_account, Socket, Data} ->
             io:fwrite("Client wants to register an account");
         {send_tweet, Socket, Data} ->
@@ -27,7 +31,7 @@ conn_loop(Socket) ->
             io:fwrite("Client wants to register an account");
         {tcp_closed, Socket} ->
             closed
-    end.    
+    end.
 
 
 
