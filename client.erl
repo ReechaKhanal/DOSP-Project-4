@@ -12,7 +12,7 @@ start() ->
     % ok = gen_tcp:send(Sock, "I SERIOUSLY want work"),
 
     io:fwrite("\n\n Just sent my request to the server\n\n"),
-    loop(Sock).
+    loop(Sock, "_").
     % receive
     %     {tcp, Sock, Data} ->
     %         io:fwrite(Data);
@@ -20,7 +20,7 @@ start() ->
     %         closed
     % end.
 
-loop(Sock) ->
+loop(Sock, UserName) ->
     % ask user for a command
     % user enters a command 
     % call a method to run that command - new process
@@ -33,29 +33,45 @@ loop(Sock) ->
             io:fwrite(CommandType),
             % parse that command - register, subscribe <user_name>
 
-            case CommandType of
-                "register" -> register_account(Sock);
-                "send tweet" -> send_tweet();
-                "retweet" -> re_tweet();
-                "subscribe" -> subscribe_to_user("anjali0645");
-                "query tweet" -> query_tweet()
-            end,               
-            
-           loop(Sock);
+            if 
+                CommandType == "register" ->
+                    UserName1 = register_account(Sock),
+                    loop(Sock, UserName1);
+                CommandType == "tweet" ->
+                    if
+                        UserName == "_" ->
+                            io:fwrite("Please register first!\n");
+                        true ->
+                            send_tweet(Sock,UserName)
+                    end,
+                    loop(Sock, UserName);
+                CommandType == "retweet" ->
+                    re_tweet();
+                CommandType == "subscribe" ->
+                    subscribe_to_user("anjali0645");
+                CommandType == "query" ->
+                    query_tweet();
+                true ->
+                    io:fwrite("Invalid command!\n")
+            end;
 
-       {tcp, closed, Sock} ->
-           io:fwrite("Client Cant connect anymore - TCP Closed")
-    end.
+        {tcp, closed, Sock} ->
+            io:fwrite("Client Cant connect anymore - TCP Closed")
+         
+        end.
 
 register_account(Sock) ->
 
     % Input user-name
     {ok, [UserName]} = io:fread("\nEnter the User Name: ", "~s\n"),
     % send the server request
-    ok = gen_tcp:send(Sock, "register_account"),
-    io:fwrite("\nAccount has been Registered\n").
+    ok = gen_tcp:send(Sock, [["register", UserName]]),
+    io:fwrite("\nAccount has been Registered\n"),
+    UserName.
 
-send_tweet() ->
+send_tweet(Sock,UserName) ->
+    {ok, [Tweet]} = io:fread("\nWhat's on your mind?: ", "~s\n"),
+    ok = gen_tcp:send(Sock, ["tweet",UserName, Tweet]),
     io:fwrite("\nTweet Sent\n").
 
 re_tweet() ->

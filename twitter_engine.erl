@@ -1,28 +1,87 @@
 -module(twitter_engine).
+-import(maps, []).
 -export[start/0].
 
 start() ->
     io:fwrite("\n\n Howdy!!, I am The Twitter Engine Clone \n\n"),
-    {ok, ListenSocket} = gen_tcp:listen(1204, [binary, {keepalive, true}, {reuseaddr, true}, {active, once}]),
-    await_connections(ListenSocket).
+    Map = maps:new(),
+    {ok, ListenSocket} = gen_tcp:listen(1204, [binary, {keepalive, true}, {reuseaddr, true}, {active, false}]),
+    await_connections(ListenSocket, Map).
 
-await_connections(Listen) ->
+await_connections(Listen, Map) ->
     {ok, Socket} = gen_tcp:accept(Listen),
     ok = gen_tcp:send(Socket, "YIP"),
-    spawn(fun() -> await_connections(Listen) end),
+    spawn(fun() -> await_connections(Listen, Map) end),
     %conn_loop(Socket).
-    do_recv(Socket, []).
+    do_recv(Socket, Map, []).
 
-do_recv(Socket, Bs) ->
+do_recv(Socket, Map, Bs) ->
     io:fwrite("Do Receive\n\n"),
     case gen_tcp:recv(Socket, 0) of
-        {ok, UserName} ->
-            do_recv(Socket, [Bs, UserName]);
+        {ok, [Data]} ->
+            
+            %[X || Data] -> Data,
+            Type = lists:nth(Data, 1),
+            io:format("\n\nTYPE: ~p\n\n ", [Type]),
+
+            if 
+                Type == "register" ->
+                    UserName = lists:nth(Data, 2),
+                    %[UserName | Data2] = Data1,
+
+                    io:format("Type: ~p\n", [Type]),
+                    io:fwrite("Inside Gen TCP RCV\n"),
+                    io:fwrite(UserName),
+                    io:fwrite("\nClient wants to register an account\n"),
+                    
+                    io:fwrite("is now registered\n"),
+                    % Map1 = maps:put(UserName, 0, Map),
+                    Output = maps:find(UserName, Map),
+                    io:format("Output: ~p\n", [Output]),
+                    if
+                        Output == error ->
+                            Map1 = maps:put(UserName, [], Map),
+                            printMap(Map1),
+                            ok = gen_tcp:send(Socket, "User has been registered"), % RESPOND BACK - YES/NO
+                            io:fwrite("OOOOPPPSSS! Key is not in database\n");
+                        true ->
+                            Map1 = Map,
+                            ok = gen_tcp:send(Socket, "Username already taken! Please run the command again with a new username"),
+                            io:fwrite("Duplicate key!\n")
+                    end,
+                    % io:format("~p\n", [maps:find("hi", Map1)]),
+                    % io:format("The value is ~p\n", [Val]),
+                    do_recv(Socket, Map1, [UserName]);
+
+                Type == "tweet" ->
+                    io:fwrite("\n This is tweet!");
+                true ->
+                    io:fwrite("\n Anything else!")
+            end;
+
         {error, closed} ->
             {ok, list_to_binary(Bs)};
         {error, Reason} ->
+            io:fwrite("error"),
             io:fwrite(Reason)
     end.
+
+printMap(Map) ->
+    io:fwrite("**************\n"),
+    List1 = maps:to_list(Map),
+    io:format("~s~n",[tuplelist_to_string(List1)]),
+    io:fwrite("**************\n").
+
+tuplelist_to_string(L) ->
+    tuplelist_to_string(L,[]).
+
+tuplelist_to_string([],Acc) ->
+    lists:flatten(["[",
+           string:join(lists:reverse(Acc),","),
+           "]"]);
+tuplelist_to_string([{X,Y}|Rest],Acc) ->
+    S = ["{\"x\":\"",X,"\", \"y\":\"",Y,"\"}"],
+    tuplelist_to_string(Rest,[S|Acc]).
 
 conn_loop(Socket) ->
     io:fwrite("Uh Oh, I can sense someone trying to connect to me!\n\n"),
