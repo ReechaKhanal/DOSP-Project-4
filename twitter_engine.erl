@@ -10,32 +10,55 @@ await_connections(Listen) ->
     {ok, Socket} = gen_tcp:accept(Listen),
     ok = gen_tcp:send(Socket, "YIP"),
     spawn(fun() -> await_connections(Listen) end),
-    conn_loop(Socket).
+    %conn_loop(Socket).
+    do_recv(Socket, []).
+
+do_recv(Socket, Bs) ->
+    io:fwrite("Do Receive\n\n"),
+    case gen_tcp:recv(Socket, 0) of
+        {ok, UserName} ->
+            do_recv(Socket, [Bs, UserName]);
+        {error, closed} ->
+            {ok, list_to_binary(Bs)};
+        {error, Reason} ->
+            io:fwrite(Reason)
+    end.
 
 conn_loop(Socket) ->
     io:fwrite("Uh Oh, I can sense someone trying to connect to me!\n\n"),
     receive
-        {Socket, Data} ->
-            io:fwrite("\n"),
-            io:fwrite(Data),
-            io:fwrite("\n");
-        {register_account, Socket, Data} ->
-            io:fwrite("Client wants to register an account");
-        {send_tweet, Socket, Data} ->
-            io:fwrite("Client wants to register an account");
-        {subscribe, Socket, Data} ->
-            io:fwrite("Client wants to register an account");
-        {re_tweet, Socket, Data} ->
-            io:fwrite("Client wants to register an account");
-        {query_tweet, Socket, Data} ->
-            io:fwrite("Client wants to register an account");
+        {tcp, Socket, Data} ->
+            io:fwrite("...."),
+            io:fwrite("\n ~p \n", [Data]),
+            if 
+                Data == <<"register_account">> ->
+                    io:fwrite("Client wants to register an account"),
+                    ok = gen_tcp:send(Socket, "username"), % RESPOND BACK - YES/NO
+                    io:fwrite("is now registered");
+                true -> 
+                    io:fwrite("TRUTH")
+            end,
+            conn_loop(Socket);
+            
         {tcp_closed, Socket} ->
+            io:fwrite("I swear I am not here!"),
             closed
     end.
 
+% {tcp, Socket, "register_account"} ->
+        %     io:fwrite("Client wants to register an account"),
+        %     ok = gen_tcp:send(Socket, "username"), % RESPOND BACK - YES/NO
+        %     io:fwrite("is now registered"),
+        %     conn_loop(Socket);
 
-
-
+        % {send_tweet, Socket, Data} ->
+        %     io:fwrite("Client wants to register an account");
+        % {subscribe, Socket, Data} ->
+        %     io:fwrite("Client wants to register an account");
+        % {re_tweet, Socket, Data} ->
+        %     io:fwrite("Client wants to register an account");
+        % {query_tweet, Socket, Data} ->
+        %     io:fwrite("Client wants to register an account");
 
 % Implement a twitter-like engine with following functionality:
 % 1. Register Account
