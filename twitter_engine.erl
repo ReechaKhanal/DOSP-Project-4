@@ -50,7 +50,25 @@ do_recv(Socket, Map, Bs) ->
                     do_recv(Socket, Map1, [UserName]);
 
                 Type == "tweet" ->
-                    io:fwrite("\n This is tweet!");
+                    UserName = binary_to_list(lists:nth(2, Data)),
+                    Tweet = binary_to_list(lists:nth(3, Data)),
+                    io:format("\n ~p sent the following tweet: ~p", [UserName, Tweet]),
+                    do_recv(Socket, Map, [UserName]);
+
+                Type == "retweet" ->
+                    UserName = binary_to_list(lists:nth(2, Data)),
+                    io:format("\n ~p wants to retweet something", [UserName]),
+                    do_recv(Socket, Map, [UserName]);
+
+                Type == "subscribe" ->
+                    UserName = binary_to_list(lists:nth(2, Data)),
+                    io:format("\n ~p wants to subscribe to someone", [UserName]),
+                    do_recv(Socket, Map, [UserName]);
+
+                Type == "query" ->
+                    UserName = binary_to_list(lists:nth(2, Data)),
+                    io:format("\n ~p wants to query", [UserName]),
+                    do_recv(Socket, Map, [UserName]);
                 true ->
                     io:fwrite("\n Anything else!")
             end;

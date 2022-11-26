@@ -84,8 +84,8 @@ register_account(Sock) ->
     UserName.
 
 send_tweet(Sock,UserName) ->
-    {ok, [Tweet]} = io:fread("\nWhat's on your mind?: ", "~s\n"),
-    ok = gen_tcp:send(Sock, ["tweet",UserName, Tweet]),
+    Tweet = io:get_line("\nWhat's on your mind?:"),
+    ok = gen_tcp:send(Sock, ["tweet", "," ,UserName, ",", Tweet]),
     io:fwrite("\nTweet Sent\n").
 
 re_tweet() ->
