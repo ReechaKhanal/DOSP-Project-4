@@ -6,59 +6,73 @@ start() ->
     PortNumber = 1204,
     IPAddress = "localhost",
     {ok, Sock} = gen_tcp:connect(IPAddress, PortNumber, [binary, {packet, 0}]),
-
-    % ok = gen_tcp:send(Sock, "I want work"),
-
-    % ok = gen_tcp:send(Sock, "I SERIOUSLY want work"),
-
     io:fwrite("\n\n Just sent my request to the server\n\n"),
     loop(Sock, "_").
-    % receive
-    %     {tcp, Sock, Data} ->
-    %         io:fwrite(Data);
-    %     {tcp, closed, Sock} ->
-    %         closed
-    % end.
 
 loop(Sock, UserName) ->
-    % ask user for a command
-    % user enters a command 
-    % call a method to run that command - new process
     receive
-       {tcp, Sock, Data} ->
-           io:fwrite(Data),
-
-            % ask user for a input command
-            {ok, [CommandType]} = io:fread("\nEnter the command: ", "~s\n"),
-            io:fwrite(CommandType),
-            % parse that command - register, subscribe <user_name>
-
-            if 
-                CommandType == "register" ->
-                    UserName1 = register_account(Sock),
-                    loop(Sock, UserName1);
-                CommandType == "tweet" ->
-                    if
-                        UserName == "_" ->
-                            io:fwrite("Please register first!\n");
-                        true ->
-                            send_tweet(Sock,UserName)
-                    end,
-                    loop(Sock, UserName);
-                CommandType == "retweet" ->
-                    re_tweet();
-                CommandType == "subscribe" ->
-                    subscribe_to_user("anjali0645");
-                CommandType == "query" ->
-                    query_tweet();
-                true ->
-                    io:fwrite("Invalid command!\n")
-            end;
-
+        {tcp, Sock, Data} ->
+            io:fwrite(Data),
+            % ask user for a command
+            % user enters a command 
+            UserName1 = get_and_parse_user_input(Sock, UserName),
+            loop(Sock, UserName1);
         {tcp, closed, Sock} ->
-            io:fwrite("Client Cant connect anymore - TCP Closed")
-         
+            io:fwrite("Client Cant connect anymore - TCP Closed") 
         end.
+
+get_and_parse_user_input(Sock, UserName) ->
+    
+    % ask user for a input command
+    {ok, [CommandType]} = io:fread("\nEnter the command: ", "~s\n"),
+    io:fwrite(CommandType),
+
+    % parse that command - register, subscribe <user_name>
+    if 
+        CommandType == "register" ->
+            UserName1 = register_account(Sock);
+        CommandType == "tweet" ->
+            if
+                UserName == "_" ->
+                    io:fwrite("Please register first!\n"),
+                    UserName1 = get_and_parse_user_input(Sock, UserName);
+                true ->
+                    send_tweet(Sock,UserName),
+                    UserName1 = UserName
+            end;
+        CommandType == "retweet" ->
+            if
+                UserName == "_" ->
+                    io:fwrite("Please register first!\n"),
+                    UserName1 = get_and_parse_user_input(Sock, UserName);
+                true ->
+                    re_tweet(),
+                    UserName1 = UserName
+            end;
+        CommandType == "subscribe" ->
+            if
+                UserName == "_" ->
+                    io:fwrite("Please register first!\n"),
+                    UserName1 = get_and_parse_user_input(Sock, UserName);
+                true ->
+                    subscribe_to_user("anjali0645"),
+                    UserName1 = UserName
+            end;
+        CommandType == "query" ->
+            if
+                UserName == "_" ->
+                    io:fwrite("Please register first!\n"),
+                    UserName1 = get_and_parse_user_input(Sock, UserName);
+                true ->
+                    query_tweet(),
+                    UserName1 = UserName
+            end;
+        true ->
+            io:fwrite("Invalid command!, Please Enter another command!\n"),
+            UserName1 = get_and_parse_user_input(Sock, UserName)
+    end,
+    UserName1.
+
 
 register_account(Sock) ->
 
