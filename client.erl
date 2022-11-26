@@ -65,7 +65,7 @@ register_account(Sock) ->
     % Input user-name
     {ok, [UserName]} = io:fread("\nEnter the User Name: ", "~s\n"),
     % send the server request
-    ok = gen_tcp:send(Sock, [["register", UserName]]),
+    ok = gen_tcp:send(Sock, [["register", ",", UserName]]),
     io:fwrite("\nAccount has been Registered\n"),
     UserName.
 

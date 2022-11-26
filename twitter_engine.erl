@@ -18,23 +18,21 @@ await_connections(Listen, Map) ->
 do_recv(Socket, Map, Bs) ->
     io:fwrite("Do Receive\n\n"),
     case gen_tcp:recv(Socket, 0) of
-        {ok, [Data]} ->
+        {ok, Data1} ->
             
-            %[X || Data] -> Data,
-            Type = lists:nth(Data, 1),
+            Data = re:split(Data1, ","),
+            Type = binary_to_list(lists:nth(1, Data)),
+
+            io:format("\n\nDATA1: ~p\n\n ", [Data]),
             io:format("\n\nTYPE: ~p\n\n ", [Type]),
 
             if 
                 Type == "register" ->
-                    UserName = lists:nth(Data, 2),
-                    %[UserName | Data2] = Data1,
+                    UserName = binary_to_list(lists:nth(2, Data)),
 
                     io:format("Type: ~p\n", [Type]),
-                    io:fwrite("Inside Gen TCP RCV\n"),
-                    io:fwrite(UserName),
-                    io:fwrite("\nClient wants to register an account\n"),
+                    io:format("\n~p wants to register an account\n", [UserName]),
                     
-                    io:fwrite("is now registered\n"),
                     % Map1 = maps:put(UserName, 0, Map),
                     Output = maps:find(UserName, Map),
                     io:format("Output: ~p\n", [Output]),
@@ -43,14 +41,12 @@ do_recv(Socket, Map, Bs) ->
                             Map1 = maps:put(UserName, [], Map),
                             printMap(Map1),
                             ok = gen_tcp:send(Socket, "User has been registered"), % RESPOND BACK - YES/NO
-                            io:fwrite("OOOOPPPSSS! Key is not in database\n");
+                            io:fwrite("Good to go, Key is not in database\n");
                         true ->
                             Map1 = Map,
                             ok = gen_tcp:send(Socket, "Username already taken! Please run the command again with a new username"),
                             io:fwrite("Duplicate key!\n")
                     end,
-                    % io:format("~p\n", [maps:find("hi", Map1)]),
-                    % io:format("The value is ~p\n", [Val]),
                     do_recv(Socket, Map1, [UserName]);
 
                 Type == "tweet" ->
