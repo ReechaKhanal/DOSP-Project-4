@@ -4,7 +4,8 @@
 
 start() ->
     io:fwrite("\n\n Howdy!!, I am The Twitter Engine Clone \n\n"),
-    Table = ets:new(t, [ordered_set]),
+    %Table = ets:new(t, [ordered_set]),
+    Table = ets:new(messages, [ordered_set, named_table, public]),
     Map = maps:new(),
     {ok, ListenSocket} = gen_tcp:listen(1204, [binary, {keepalive, true}, {reuseaddr, true}, {active, false}]),
     await_connections(ListenSocket, Table).
@@ -40,13 +41,13 @@ do_recv(Socket, Table, Bs) ->
                     io:format("Output: ~p\n", [Output]),
                     if
                         Output == [] ->
-                            % Map1 = maps:put(UserName, #{"followers" => [], "tweets" => []}, Map),
-                            Map = maps:to_list(#{"followers" => [], "tweets" => []}),
-                            %ets:insert(Table, {UserName, Map}),
-                            ets:insert(Table, {UserName, "Map"}),
-                            % {ok, Val} = maps:find(UserName, Map1),
-                            Val = maps:from_list(ets:lookup(Table, UserName)),
-                            printMap(Val),
+
+                            ets:insert(Table, {UserName, {{"followers", {}}, {"tweets", {}}}}),                            
+                            Temp_List = ets:lookup(Table, UserName),
+                            io:format("~p", [lists:nth(1, Temp_List)]),
+
+                            %Val = maps:from_list(Temp_List),
+                            %printMap(Val),
                             ok = gen_tcp:send(Socket, "User has been registered"), % RESPOND BACK - YES/NO
                             io:fwrite("Good to go, Key is not in database\n");
                         true ->
@@ -153,21 +154,6 @@ conn_loop(Socket) ->
             io:fwrite("I swear I am not here!"),
             closed
     end.
-
-% {tcp, Socket, "register_account"} ->
-        %     io:fwrite("Client wants to register an account"),
-        %     ok = gen_tcp:send(Socket, "username"), % RESPOND BACK - YES/NO
-        %     io:fwrite("is now registered"),
-        %     conn_loop(Socket);
-
-        % {send_tweet, Socket, Data} ->
-        %     io:fwrite("Client wants to register an account");
-        % {subscribe, Socket, Data} ->
-        %     io:fwrite("Client wants to register an account");
-        % {re_tweet, Socket, Data} ->
-        %     io:fwrite("Client wants to register an account");
-        % {query_tweet, Socket, Data} ->
-        %     io:fwrite("Client wants to register an account");
 
 % Implement a twitter-like engine with following functionality:
 % 1. Register Account
