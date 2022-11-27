@@ -6,18 +6,19 @@ start() ->
     io:fwrite("\n\n Howdy!!, I am The Twitter Engine Clone \n\n"),
     %Table = ets:new(t, [ordered_set]),
     Table = ets:new(messages, [ordered_set, named_table, public]),
+    All_Clients = [],
     Map = maps:new(),
     {ok, ListenSocket} = gen_tcp:listen(1204, [binary, {keepalive, true}, {reuseaddr, true}, {active, false}]),
-    await_connections(ListenSocket, Table).
+    await_connections(ListenSocket, Table, All_Clients).
 
-await_connections(Listen, Table) ->
+await_connections(Listen, Table, All_Clients) ->
     {ok, Socket} = gen_tcp:accept(Listen),
     ok = gen_tcp:send(Socket, "YIP"),
-    spawn(fun() -> await_connections(Listen, Table) end),
+    spawn(fun() -> await_connections(Listen, Table, All_Clients++[Socket]) end),
     %conn_loop(Socket).
-    do_recv(Socket, Table, []).
+    do_recv(Socket, Table, [], All_Clients).
 
-do_recv(Socket, Table, Bs) ->
+do_recv(Socket, Table, Bs, All_Clients) ->
     io:fwrite("Do Receive\n\n"),
     case gen_tcp:recv(Socket, 0) of
         {ok, Data1} ->
@@ -54,7 +55,7 @@ do_recv(Socket, Table, Bs) ->
                             ok = gen_tcp:send(Socket, "Username already taken! Please run the command again with a new username"),
                             io:fwrite("Duplicate key!\n")
                     end,
-                    do_recv(Socket, Table, [UserName]);
+                    do_recv(Socket, Table, [UserName], All_Clients);
 
                 Type == "tweet" ->
                     UserName = binary_to_list(lists:nth(2, Data)),
@@ -63,21 +64,24 @@ do_recv(Socket, Table, Bs) ->
                     
                     % {ok, Val} = maps:find(UserName, Map),
                     Val = ets:lookup(Table, UserName),
-                    {ok, CurrentTweets} = maps:find("tweets",Val),
+                    Val3 = lists:nth(1, Val),
+                    Val2 = element(2, Val3),
+                    Val1 = maps:from_list(Val2),
+                    {ok, CurrentFollowers} = maps:find("followers",Val1),                         
+                    {ok, CurrentTweets} = maps:find("tweets",Val1),
+
                     NewTweets = CurrentTweets ++ [Tweet],
-                    Map2 = maps:update("tweets", NewTweets, Val),
-                    % Map1 = maps:update(UserName, Map2, Map),
-                    ets:update_element(Table, UserName, [Map2]),
-                    Val1 = ets:lookup(Table, UserName),
-                    % {ok, Val1} = maps:find(UserName, Map1),
-                    printMap(Val1),
+                    io:format("~p~n",[NewTweets]),
+                    
+                    ets:insert(Table, {UserName, [{"followers", CurrentFollowers}, {"tweets", NewTweets}]}),
+
                     ok = gen_tcp:send(Socket, "Tweeted!"),
-                    do_recv(Socket, Table, [UserName]);
+                    do_recv(Socket, Table, [UserName], All_Clients);
 
                 Type == "retweet" ->
                     UserName = binary_to_list(lists:nth(2, Data)),
                     io:format("\n ~p wants to retweet something", [UserName]),
-                    do_recv(Socket, Table, [UserName]);
+                    do_recv(Socket, Table, [UserName], All_Clients);
 
                 Type == "subscribe" ->
                     UserName = binary_to_list(lists:nth(2, Data)),
@@ -108,19 +112,19 @@ do_recv(Socket, Table, Bs) ->
 
                             %ets:insert(Table, {Sub_User, [Map2]}),
                             ets:insert(Table, {Sub_User, [{"followers", NewFollowers}, {"tweets", CurrentTweets}]}),
-                            
+
                             ok = gen_tcp:send(Socket, "Subscribed!"),
 
-                            do_recv(Socket, Table, [UserName])
+                            do_recv(Socket, Table, [UserName], All_Clients)
                     end,
                     io:format("\n ~p wants to subscribe to ~p\n", [UserName, Sub_User]),
                     ok = gen_tcp:send(Socket, "Subscribed!"),
-                    do_recv(Socket, Table, [UserName]);
+                    do_recv(Socket, Table, [UserName], All_Clients);
 
                 Type == "query" ->
                     UserName = binary_to_list(lists:nth(2, Data)),
                     io:format("\n ~p wants to query", [UserName]),
-                    do_recv(Socket, Table, [UserName]);
+                    do_recv(Socket, Table, [UserName], All_Clients);
                 true ->
                     io:fwrite("\n Anything else!")
             end;
