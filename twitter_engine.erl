@@ -6,19 +6,20 @@ start() ->
     io:fwrite("\n\n Howdy!!, I am The Twitter Engine Clone \n\n"),
     %Table = ets:new(t, [ordered_set]),
     Table = ets:new(messages, [ordered_set, named_table, public]),
+    Client_Socket_Mapping = ets:new(clients, [ordered_set, named_table, public]),
     All_Clients = [],
     Map = maps:new(),
     {ok, ListenSocket} = gen_tcp:listen(1204, [binary, {keepalive, true}, {reuseaddr, true}, {active, false}]),
-    await_connections(ListenSocket, Table, All_Clients).
+    await_connections(ListenSocket, Table, Client_Socket_Mapping).
 
-await_connections(Listen, Table, All_Clients) ->
+await_connections(Listen, Table, Client_Socket_Mapping) ->
     {ok, Socket} = gen_tcp:accept(Listen),
     ok = gen_tcp:send(Socket, "YIP"),
-    spawn(fun() -> await_connections(Listen, Table, All_Clients++[Socket]) end),
+    spawn(fun() -> await_connections(Listen, Table, Client_Socket_Mapping) end),
     %conn_loop(Socket).
-    do_recv(Socket, Table, [], All_Clients).
+    do_recv(Socket, Table, [], Client_Socket_Mapping).
 
-do_recv(Socket, Table, Bs, All_Clients) ->
+do_recv(Socket, Table, Bs, Client_Socket_Mapping) ->
     io:fwrite("Do Receive\n\n"),
     case gen_tcp:recv(Socket, 0) of
         {ok, Data1} ->
@@ -32,7 +33,9 @@ do_recv(Socket, Table, Bs, All_Clients) ->
             if 
                 Type == "register" ->
                     UserName = binary_to_list(lists:nth(2, Data)),
-
+                    PID = binary_to_list(lists:nth(3, Data)),
+                    io:format("\nPID:~p\n", [PID]),
+                    io:format("\nSocket:~p\n", [Socket]),
                     io:format("Type: ~p\n", [Type]),
                     io:format("\n~p wants to register an account\n", [UserName]),
                     
@@ -43,7 +46,8 @@ do_recv(Socket, Table, Bs, All_Clients) ->
                     if
                         Output == [] ->
 
-                            ets:insert(Table, {UserName, [{"followers", []}, {"tweets", []}]}),                            
+                            ets:insert(Table, {UserName, [{"followers", []}, {"tweets", []}]}),      
+                            ets:insert(Client_Socket_Mapping, {UserName, PID}),                      
                             Temp_List = ets:lookup(Table, UserName),
                             io:format("~p", [lists:nth(1, Temp_List)]),
 
@@ -55,7 +59,7 @@ do_recv(Socket, Table, Bs, All_Clients) ->
                             ok = gen_tcp:send(Socket, "Username already taken! Please run the command again with a new username"),
                             io:fwrite("Duplicate key!\n")
                     end,
-                    do_recv(Socket, Table, [UserName], All_Clients);
+                    do_recv(Socket, Table, [UserName], Client_Socket_Mapping);
 
                 Type == "tweet" ->
                     UserName = binary_to_list(lists:nth(2, Data)),
@@ -64,6 +68,7 @@ do_recv(Socket, Table, Bs, All_Clients) ->
                     
                     % {ok, Val} = maps:find(UserName, Map),
                     Val = ets:lookup(Table, UserName),
+                    io:format("Output: ~p\n", [Val]),
                     Val3 = lists:nth(1, Val),
                     Val2 = element(2, Val3),
                     Val1 = maps:from_list(Val2),
@@ -74,14 +79,14 @@ do_recv(Socket, Table, Bs, All_Clients) ->
                     io:format("~p~n",[NewTweets]),
                     
                     ets:insert(Table, {UserName, [{"followers", CurrentFollowers}, {"tweets", NewTweets}]}),
-
+                    sendMessage(Socket, Client_Socket_Mapping, Tweet, CurrentFollowers, UserName),
                     ok = gen_tcp:send(Socket, "Tweeted!"),
-                    do_recv(Socket, Table, [UserName], All_Clients);
+                    do_recv(Socket, Table, [UserName], Client_Socket_Mapping);
 
                 Type == "retweet" ->
                     UserName = binary_to_list(lists:nth(2, Data)),
                     io:format("\n ~p wants to retweet something", [UserName]),
-                    do_recv(Socket, Table, [UserName], All_Clients);
+                    do_recv(Socket, Table, [UserName], Client_Socket_Mapping);
 
                 Type == "subscribe" ->
                     UserName = binary_to_list(lists:nth(2, Data)),
@@ -89,7 +94,7 @@ do_recv(Socket, Table, Bs, All_Clients) ->
                     Sub_User = string:strip(SubscribedUserName, right, $\n),
 
                     Output1 = ets:lookup(Table, Sub_User),
-                    io:format("~p", [Output1]),
+                    io:format("Output: ~p\n", [Output1]),
                     %Output1 = maps:find(Sub_User, Table),
 
                     if
@@ -112,19 +117,18 @@ do_recv(Socket, Table, Bs, All_Clients) ->
 
                             %ets:insert(Table, {Sub_User, [Map2]}),
                             ets:insert(Table, {Sub_User, [{"followers", NewFollowers}, {"tweets", CurrentTweets}]}),
-
                             ok = gen_tcp:send(Socket, "Subscribed!"),
 
-                            do_recv(Socket, Table, [UserName], All_Clients)
+                            do_recv(Socket, Table, [UserName], Client_Socket_Mapping)
                     end,
                     io:format("\n ~p wants to subscribe to ~p\n", [UserName, Sub_User]),
                     ok = gen_tcp:send(Socket, "Subscribed!"),
-                    do_recv(Socket, Table, [UserName], All_Clients);
+                    do_recv(Socket, Table, [UserName], Client_Socket_Mapping);
 
                 Type == "query" ->
                     UserName = binary_to_list(lists:nth(2, Data)),
                     io:format("\n ~p wants to query", [UserName]),
-                    do_recv(Socket, Table, [UserName], All_Clients);
+                    do_recv(Socket, Table, [UserName], Client_Socket_Mapping);
                 true ->
                     io:fwrite("\n Anything else!")
             end;
@@ -135,6 +139,44 @@ do_recv(Socket, Table, Bs, All_Clients) ->
             io:fwrite("error"),
             io:fwrite(Reason)
     end.
+
+sendMessage(Socket, Client_Socket_Mapping, Tweet, Subscribers, UserName) ->
+    if
+        Subscribers == [] ->
+            io:fwrite("\nNo followers!\n");
+        % Client_Socket_Mapping == [] ->
+        %     io:fwrite("\nAll clients empty!\n");
+        true ->
+            % io:format("\nAll Clients: ~p~n",[Client_Socket_Mapping]),
+
+            [Client_To_Send | Remaining_List ] = Subscribers,
+            io:format("Client to send: ~p\n", [Client_To_Send]),
+            io:format("\nRemaining List: ~p~n",[Remaining_List]),
+            Client_Socket_Row = ets:lookup(Client_Socket_Mapping,Client_To_Send),
+            Val3 = lists:nth(1, Client_Socket_Row),
+            Client_Socket = list_to_pid(element(2, Val3)),
+            io:format("\nClient Socket: ~p~n",[Client_Socket]),
+            % List_Client_Socket = pid(Client_Socket),
+            % io:format("\nList Client Socket: ~p~n",[List_Client_Socket]),
+            % {ok, SockAddress} = socket:sockname(Socket),
+            % {ok, SockAddress} = socket:sockname(Client_Socket),
+            Client_Socket ! {self(), {udpok,"tweetedddd"}},
+            % Out = socket:sendto(Client_Socket, "Yayyyyyyy!! Tweet received!\n", "localhost"),
+            % ok = gen_tcp:send(Socket, "Yayyyyyyy!! Tweet received by Current!\n"),
+            Socket ! {self(), {udpok, "tweetedddd"}},
+            % if
+            %     Out == ok ->
+            %         io:fwrite("\n Looks Gooooood!\n");
+            %     true ->
+            %         io:fwrite("\nWe are in true\n"),
+            %         {error, Reason} = Out,
+            %         io:format("\nError reason: ~p", [Reason])
+            % end,
+            % ok = gen_tcp:send(Client_Socket, [Tweet,",",UserName,",",Subscribers]),
+            sendMessage(Socket, Client_Socket_Mapping, Tweet, Remaining_List, UserName)
+    end,
+    io:fwrite("Send message!\n").
+
 
 printMap(Map) ->
     io:fwrite("**************\n"),

@@ -17,6 +17,8 @@ loop(Sock, UserName) ->
             % user enters a command 
             UserName1 = get_and_parse_user_input(Sock, UserName),
             loop(Sock, UserName1);
+        {From, {udpok, Data}} ->
+            io:fwrite("\n Anjali is very cool \n");
         {tcp, closed, Sock} ->
             io:fwrite("Client Cant connect anymore - TCP Closed") 
         end.
@@ -79,7 +81,8 @@ register_account(Sock) ->
     % Input user-name
     {ok, [UserName]} = io:fread("\nEnter the User Name: ", "~s\n"),
     % send the server request
-    ok = gen_tcp:send(Sock, [["register", ",", UserName]]),
+    io:format("SELF: ~p\n", [self()]),
+    ok = gen_tcp:send(Sock, [["register", ",", UserName, ",", pid_to_list(self())]]),
     io:fwrite("\nAccount has been Registered\n"),
     UserName.
 
