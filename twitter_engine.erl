@@ -4,18 +4,19 @@
 
 start() ->
     io:fwrite("\n\n Howdy!!, I am The Twitter Engine Clone \n\n"),
+    Table = ets:new(t, [ordered_set]),
     Map = maps:new(),
     {ok, ListenSocket} = gen_tcp:listen(1204, [binary, {keepalive, true}, {reuseaddr, true}, {active, false}]),
-    await_connections(ListenSocket, Map).
+    await_connections(ListenSocket, Table).
 
-await_connections(Listen, Map) ->
+await_connections(Listen, Table) ->
     {ok, Socket} = gen_tcp:accept(Listen),
     ok = gen_tcp:send(Socket, "YIP"),
-    spawn(fun() -> await_connections(Listen, Map) end),
+    spawn(fun() -> await_connections(Listen, Table) end),
     %conn_loop(Socket).
-    do_recv(Socket, Map, []).
+    do_recv(Socket, Table, []).
 
-do_recv(Socket, Map, Bs) ->
+do_recv(Socket, Table, Bs) ->
     io:fwrite("Do Receive\n\n"),
     case gen_tcp:recv(Socket, 0) of
         {ok, Data1} ->
@@ -23,7 +24,7 @@ do_recv(Socket, Map, Bs) ->
             Data = re:split(Data1, ","),
             Type = binary_to_list(lists:nth(1, Data)),
 
-            io:format("\n\nDATA1: ~p\n\n ", [Data]),
+            io:format("\n\nDATA: ~p\n\n ", [Data]),
             io:format("\n\nTYPE: ~p\n\n ", [Type]),
 
             if 
@@ -34,41 +35,76 @@ do_recv(Socket, Map, Bs) ->
                     io:format("\n~p wants to register an account\n", [UserName]),
                     
                     % Map1 = maps:put(UserName, 0, Map),
-                    Output = maps:find(UserName, Map),
+                    % Output = maps:find(UserName, Map),
+                    Output = ets:lookup(Table, UserName),
                     io:format("Output: ~p\n", [Output]),
                     if
-                        Output == error ->
-                            Map1 = maps:put(UserName, [], Map),
-                            printMap(Map1),
+                        Output == [] ->
+                            % Map1 = maps:put(UserName, #{"followers" => [], "tweets" => []}, Map),
+                            Map = maps:to_list(#{"followers" => [], "tweets" => []}),
+                            %ets:insert(Table, {UserName, Map}),
+                            ets:insert(Table, {UserName, "Map"}),
+                            % {ok, Val} = maps:find(UserName, Map1),
+                            Val = maps:from_list(ets:lookup(Table, UserName)),
+                            printMap(Val),
                             ok = gen_tcp:send(Socket, "User has been registered"), % RESPOND BACK - YES/NO
                             io:fwrite("Good to go, Key is not in database\n");
                         true ->
-                            Map1 = Map,
                             ok = gen_tcp:send(Socket, "Username already taken! Please run the command again with a new username"),
                             io:fwrite("Duplicate key!\n")
                     end,
-                    do_recv(Socket, Map1, [UserName]);
+                    do_recv(Socket, Table, [UserName]);
 
                 Type == "tweet" ->
                     UserName = binary_to_list(lists:nth(2, Data)),
                     Tweet = binary_to_list(lists:nth(3, Data)),
                     io:format("\n ~p sent the following tweet: ~p", [UserName, Tweet]),
-                    do_recv(Socket, Map, [UserName]);
+                    
+                    % {ok, Val} = maps:find(UserName, Map),
+                    Val = ets:lookup(Table, UserName),
+                    {ok, CurrentTweets} = maps:find("tweets",Val),
+                    NewTweets = CurrentTweets ++ [Tweet],
+                    Map2 = maps:update("tweets", NewTweets, Val),
+                    % Map1 = maps:update(UserName, Map2, Map),
+                    ets:update_element(Table, UserName, [Map2]),
+                    Val1 = ets:lookup(Table, UserName),
+                    % {ok, Val1} = maps:find(UserName, Map1),
+                    printMap(Val1),
+                    ok = gen_tcp:send(Socket, "Tweeted!"),
+                    do_recv(Socket, Table, [UserName]);
 
                 Type == "retweet" ->
                     UserName = binary_to_list(lists:nth(2, Data)),
                     io:format("\n ~p wants to retweet something", [UserName]),
-                    do_recv(Socket, Map, [UserName]);
+                    do_recv(Socket, Table, [UserName]);
 
                 Type == "subscribe" ->
                     UserName = binary_to_list(lists:nth(2, Data)),
-                    io:format("\n ~p wants to subscribe to someone", [UserName]),
-                    do_recv(Socket, Map, [UserName]);
+                    SubscribedUserName = binary_to_list(lists:nth(3, Data)),
+                    Sub_User = string:strip(SubscribedUserName, right, $\n),
+                    Output1 = maps:find(Sub_User, Table),
+                    if
+                        Output1 == error ->
+                            io:fwrite("The username entered doesn't exist! Please try again. \n");
+                        true ->
+                            {ok, Val} = maps:find(Sub_User, Table),
+                            {ok, CurrentFollowers} = maps:find("followers",Val),
+                            NewFollowers = CurrentFollowers ++ [UserName,","],
+                            Map2 = maps:update("followers", NewFollowers, Val),
+                            Map1 = maps:update(UserName, Map2, Table),
+                            {ok, Val1} = maps:find(UserName, Map1),
+                            printMap(Val1),
+                            ok = gen_tcp:send(Socket, "Subscribed!"),
+                            do_recv(Socket, Map1, [UserName])
+                    end,
+                    io:format("\n ~p wants to subscribe to ~p\n", [UserName, Sub_User]),
+                    ok = gen_tcp:send(Socket, "Subscribed!"),
+                    do_recv(Socket, Table, [UserName]);
 
                 Type == "query" ->
                     UserName = binary_to_list(lists:nth(2, Data)),
                     io:format("\n ~p wants to query", [UserName]),
-                    do_recv(Socket, Map, [UserName]);
+                    do_recv(Socket, Table, [UserName]);
                 true ->
                     io:fwrite("\n Anything else!")
             end;

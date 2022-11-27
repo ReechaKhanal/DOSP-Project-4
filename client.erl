@@ -55,7 +55,7 @@ get_and_parse_user_input(Sock, UserName) ->
                     io:fwrite("Please register first!\n"),
                     UserName1 = get_and_parse_user_input(Sock, UserName);
                 true ->
-                    subscribe_to_user("anjali0645"),
+                    subscribe_to_user(Sock, UserName),
                     UserName1 = UserName
             end;
         CommandType == "query" ->
@@ -91,8 +91,10 @@ send_tweet(Sock,UserName) ->
 re_tweet() ->
     io:fwrite("\nRetweeted\n").
 
-subscribe_to_user(User_Name) ->
-    io:format("Subscribed to the user ~p", [User_Name]).
+subscribe_to_user(Sock, UserName) ->
+    SubscribeUserName = io:get_line("\nWho do you want to subscribe to?:"),
+    ok = gen_tcp:send(Sock, ["subscribe", "," ,UserName, ",", SubscribeUserName]),
+    io:fwrite("\nSubscribed!\n").
 
 query_tweet() ->
     io:fwrite("Queried related tweets").
