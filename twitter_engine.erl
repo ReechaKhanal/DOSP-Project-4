@@ -42,7 +42,7 @@ do_recv(Socket, Table, Bs) ->
                     if
                         Output == [] ->
 
-                            ets:insert(Table, {UserName, {{"followers", {}}, {"tweets", {}}}}),                            
+                            ets:insert(Table, {UserName, [{"followers", []}, {"tweets", []}]}),                            
                             Temp_List = ets:lookup(Table, UserName),
                             io:format("~p", [lists:nth(1, Temp_List)]),
 
@@ -83,20 +83,35 @@ do_recv(Socket, Table, Bs) ->
                     UserName = binary_to_list(lists:nth(2, Data)),
                     SubscribedUserName = binary_to_list(lists:nth(3, Data)),
                     Sub_User = string:strip(SubscribedUserName, right, $\n),
-                    Output1 = maps:find(Sub_User, Table),
+
+                    Output1 = ets:lookup(Table, Sub_User),
+                    io:format("~p", [Output1]),
+                    %Output1 = maps:find(Sub_User, Table),
+
                     if
-                        Output1 == error ->
+                        Output1 == [] ->
                             io:fwrite("The username entered doesn't exist! Please try again. \n");
                         true ->
-                            {ok, Val} = maps:find(Sub_User, Table),
-                            {ok, CurrentFollowers} = maps:find("followers",Val),
-                            NewFollowers = CurrentFollowers ++ [UserName,","],
-                            Map2 = maps:update("followers", NewFollowers, Val),
-                            Map1 = maps:update(UserName, Map2, Table),
-                            {ok, Val1} = maps:find(UserName, Map1),
-                            printMap(Val1),
+
+                            Val = ets:lookup(Table, Sub_User),
+                            io:format("~p~n",[Val]),
+                            Val3 = lists:nth(1, Val),
+                            Val2 = element(2, Val3),
+
+                            Val1 = maps:from_list(Val2),                            
+                            {ok, CurrentFollowers} = maps:find("followers",Val1),
+                            {ok, CurrentTweets} = maps:find("tweets",Val1),
+
+                            NewFollowers = CurrentFollowers ++ [UserName],
+                            io:format("~p~n",[NewFollowers]),
+                            % Map2 = maps:update("followers", NewFollowers, Val1),
+
+                            %ets:insert(Table, {Sub_User, [Map2]}),
+                            ets:insert(Table, {Sub_User, [{"followers", NewFollowers}, {"tweets", CurrentTweets}]}),
+                            
                             ok = gen_tcp:send(Socket, "Subscribed!"),
-                            do_recv(Socket, Map1, [UserName])
+
+                            do_recv(Socket, Table, [UserName])
                     end,
                     io:format("\n ~p wants to subscribe to ~p\n", [UserName, Sub_User]),
                     ok = gen_tcp:send(Socket, "Subscribed!"),
