@@ -17,8 +17,6 @@ loop(Sock, UserName) ->
             % user enters a command 
             UserName1 = get_and_parse_user_input(Sock, UserName),
             loop(Sock, UserName1);
-        {From, {udpok, Data}} ->
-            io:fwrite("\n Anjali is very cool \n");
         {tcp, closed, Sock} ->
             io:fwrite("Client Cant connect anymore - TCP Closed") 
         end.
@@ -48,7 +46,7 @@ get_and_parse_user_input(Sock, UserName) ->
                     io:fwrite("Please register first!\n"),
                     UserName1 = get_and_parse_user_input(Sock, UserName);
                 true ->
-                    re_tweet(),
+                    re_tweet(Sock, UserName),
                     UserName1 = UserName
             end;
         CommandType == "subscribe" ->
@@ -91,7 +89,10 @@ send_tweet(Sock,UserName) ->
     ok = gen_tcp:send(Sock, ["tweet", "," ,UserName, ",", Tweet]),
     io:fwrite("\nTweet Sent\n").
 
-re_tweet() ->
+re_tweet(Socket, UserName) ->
+    {ok, [Person_UserName]} = io:fread("\nEnter the User Name whose tweet you want to re-post: ", "~s\n"),
+    Tweet = io:get_line("\nEnter the tweet that you want to repost: "),
+    ok = gen_tcp:send(Socket, ["retweet", "," ,Person_UserName, ",", UserName,",",Tweet]),
     io:fwrite("\nRetweeted\n").
 
 subscribe_to_user(Sock, UserName) ->
