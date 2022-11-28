@@ -64,7 +64,7 @@ get_and_parse_user_input(Sock, UserName) ->
                     io:fwrite("Please register first!\n"),
                     UserName1 = get_and_parse_user_input(Sock, UserName);
                 true ->
-                    query_tweet(),
+                    query_tweet(Sock, UserName),
                     UserName1 = UserName
             end;
         true ->
@@ -100,7 +100,24 @@ subscribe_to_user(Sock, UserName) ->
     ok = gen_tcp:send(Sock, ["subscribe", "," ,UserName, ",", SubscribeUserName]),
     io:fwrite("\nSubscribed!\n").
 
-query_tweet() ->
+query_tweet(Sock, UserName) ->
+    io:fwrite("\n Querying Options:\n"),
+    io:fwrite("\n 1. My Mentions\n"),
+    io:fwrite("\n 2. Hashtag Search\n"),
+    io:fwrite("\n 3. Subscribed Users Tweets\n"),
+    {ok, [Option]} = io:fread("\nSpecify the task number you want to perform: ", "~s\n"),
+    if
+        Option == "1" ->
+            ok = gen_tcp:send(Sock, ["query", "," ,UserName, ",", "1"]);
+        Option == "2" ->
+            Hashtag = io:get_line("\nEnter the hahstag you want to search: "),
+            ok = gen_tcp:send(Sock, ["query", "," ,UserName, ",","2",",", Hashtag]);
+        true ->
+            Sub_UserName = io:get_line("\nWhose tweets do you want? "),
+            ok = gen_tcp:send(Sock, ["query", "," ,UserName, ",", "3",",",Sub_UserName])
+    end,
+    % Query = io:get_line("\nWhat are you looking for? "),
+    % ok = gen_tcp:send(Sock, ["query", "," ,UserName, ",", Query]),
     io:fwrite("Queried related tweets").
 
 % subscribe <user_name>

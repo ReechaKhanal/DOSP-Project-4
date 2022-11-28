@@ -153,8 +153,38 @@ do_recv(Socket, Table, Bs, Client_Socket_Mapping) ->
                     do_recv(Socket, Table, [UserName], Client_Socket_Mapping);
 
                 Type == "query" ->
+                    Option = binary_to_list(lists:nth(3, Data)),
                     UserName = binary_to_list(lists:nth(2, Data)),
+                    % Query = binary_to_list(lists:nth(3, Data)),
+                    if
+                        Option == "1" ->
+                            io:fwrite("My mentions!\n");
+                        Option == "2" ->
+                            io:fwrite("Hashtag Search\n"),
+                            Hashtag = binary_to_list(lists:nth(4, Data)),
+                            io:format("Hashtag: ~p\n", [Hashtag]);
+                        true ->
+                            io:fwrite("Subscribed User Search\n"),
+                            Sub_UserName = binary_to_list(lists:nth(4, Data)),
+                            io:format("Sub_UserName: ~p\n", [Sub_UserName])
+                    end,
                     io:format("\n ~p wants to query", [UserName]),
+                    % Query_List = re:split(Query, " "),
+                    % FirstWord = lists:nth(1, Query_List),
+                    % io:format("First word is ~p\n", [FirstWord]),
+                    % FirstLetter = string:slice(FirstWord, 0, 1),
+                    % io:format("First letter is ~p\n", [FirstLetter]),
+                    % if
+                    %     FirstLetter == <<"@">> ->
+                    %         % check for the mentioned user in the table
+                    %         % if the user doesn't exist, write command invalid, please try again
+                    %         % if the user exists, return his/hers tweets
+                    %         % check for all the tweets, return the ones in which the user is mentioned
+
+                    %         io:fwrite("@ symbol\n");
+                    %     true ->
+                    %         io:fwrite("No @ symbol\n")
+                    % end,
                     do_recv(Socket, Table, [UserName], Client_Socket_Mapping);
                 true ->
                     io:fwrite("\n Anything else!")
@@ -166,6 +196,18 @@ do_recv(Socket, Table, Bs, Client_Socket_Mapping) ->
             io:fwrite("error"),
             io:fwrite(Reason)
     end.
+
+searchAllTweets(Symbol, Table_List, Word) ->
+    Search = string:concat(Symbol, Word),
+    io:format("Word to be searched: ~p\n", [Search]),
+    [Row_To_Check | Remaining_List ] = Table_List,
+    Val3 = lists:nth(2, Row_To_Check),
+    Val2 = element(2, Val3),
+    Val1 = maps:from_list(Val2),                            
+    {ok, CurrentTweets} = maps:find("tweets",Val1),
+    io:fwrite("Searching all tweets\n"),
+    searchAllTweets(Symbol, Table_List, Word).
+
 
 sendMessage(Socket, Client_Socket_Mapping, Tweet, Subscribers, UserName) ->
     if
