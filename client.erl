@@ -1,5 +1,25 @@
 -module(client).
--export[start/0].
+-export[start/0, test/1].
+
+test(Id) ->
+    io:fwrite("\nEntry Point for Simulator!\n"), 
+    awaitTestCommands(Id).
+
+awaitTestCommands(Id) ->
+    io:fwrite("\nReceive and exectue commands from the simulator\n"),
+    receive
+        {_, {register}} ->
+            "Register";
+        {_, {tweet, Tweet}} ->
+            io:format("Tweet: ~p", [Tweet]);
+        {_, {retweet, Retweet_User, Tweet}} ->
+            io:format("Retweet User: ~p, Re-Tweet Tweet: ~p", [Retweet_User, Tweet]);
+        {_, {subscribe, User}} ->
+            io:format("Subscribe to: ~p", [User]);
+        {_, {query, Query_Type, Query}} ->
+            io:format("Query Type: ~p, Query: ~p", [Query_Type, Query])
+    end.
+
 
 start() ->
     io:fwrite("\n\n Hii, I am a new client\n\n"),
