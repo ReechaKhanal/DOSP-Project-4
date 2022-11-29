@@ -5,6 +5,10 @@ start() ->
     io:fwrite("\n\n Simulator Running\n\n"),
     {ok, [Number_of_Clients]} = io:fread("\nNumber of clients to simulate: ", "~s\n"),
     Clients = startClient(Number_of_Clients),
+
+    CommandType = ["tweet", "retweet", "subscribe", "query"],
+    QueryType = ["1", "2", "3"],
+
     Clients.
 
 startClient(Number_of_Clients) ->

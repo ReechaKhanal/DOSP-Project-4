@@ -57,7 +57,8 @@ get_and_parse_user_input(Sock, UserName) ->
                     io:fwrite("Please register first!\n"),
                     UserName1 = get_and_parse_user_input(Sock, UserName);
                 true ->
-                    send_tweet(Sock,UserName),
+                    Tweet = io:get_line("\nWhat's on your mind?:"),
+                    send_tweet(Sock,UserName, Tweet),
                     UserName1 = UserName
             end;
         CommandType == "retweet" ->
@@ -66,7 +67,9 @@ get_and_parse_user_input(Sock, UserName) ->
                     io:fwrite("Please register first!\n"),
                     UserName1 = get_and_parse_user_input(Sock, UserName);
                 true ->
-                    re_tweet(Sock, UserName),
+                    {ok, [Person_UserName]} = io:fread("\nEnter the User Name whose tweet you want to re-post: ", "~s\n"),
+                    Tweet = io:get_line("\nEnter the tweet that you want to repost: "),
+                    re_tweet(Sock, UserName, Person_UserName, Tweet),
                     UserName1 = UserName
             end;
         CommandType == "subscribe" ->
@@ -75,7 +78,8 @@ get_and_parse_user_input(Sock, UserName) ->
                     io:fwrite("Please register first!\n"),
                     UserName1 = get_and_parse_user_input(Sock, UserName);
                 true ->
-                    subscribe_to_user(Sock, UserName),
+                    SubscribeUserName = io:get_line("\nWho do you want to subscribe to?:"),
+                    subscribe_to_user(Sock, UserName, SubscribeUserName),
                     UserName1 = UserName
             end;
         CommandType == "query" ->
@@ -84,7 +88,12 @@ get_and_parse_user_input(Sock, UserName) ->
                     io:fwrite("Please register first!\n"),
                     UserName1 = get_and_parse_user_input(Sock, UserName);
                 true ->
-                    query_tweet(Sock, UserName),
+                    io:fwrite("\n Querying Options:\n"),
+                    io:fwrite("\n 1. My Mentions\n"),
+                    io:fwrite("\n 2. Hashtag Search\n"),
+                    io:fwrite("\n 3. Subscribed Users Tweets\n"),
+                    {ok, [Option]} = io:fread("\nSpecify the task number you want to perform: ", "~s\n"),
+                    query_tweet(Sock, UserName, Option),
                     UserName1 = UserName
             end;
         true ->
@@ -104,28 +113,19 @@ register_account(Sock) ->
     io:fwrite("\nAccount has been Registered\n"),
     UserName.
 
-send_tweet(Sock,UserName) ->
-    Tweet = io:get_line("\nWhat's on your mind?:"),
+send_tweet(Sock,UserName, Tweet) ->
     ok = gen_tcp:send(Sock, ["tweet", "," ,UserName, ",", Tweet]),
     io:fwrite("\nTweet Sent\n").
 
-re_tweet(Socket, UserName) ->
-    {ok, [Person_UserName]} = io:fread("\nEnter the User Name whose tweet you want to re-post: ", "~s\n"),
-    Tweet = io:get_line("\nEnter the tweet that you want to repost: "),
+re_tweet(Socket, UserName,Person_UserName, Tweet) ->
     ok = gen_tcp:send(Socket, ["retweet", "," ,Person_UserName, ",", UserName,",",Tweet]),
     io:fwrite("\nRetweeted\n").
 
-subscribe_to_user(Sock, UserName) ->
-    SubscribeUserName = io:get_line("\nWho do you want to subscribe to?:"),
+subscribe_to_user(Sock, UserName, SubscribeUserName) ->
     ok = gen_tcp:send(Sock, ["subscribe", "," ,UserName, ",", SubscribeUserName]),
     io:fwrite("\nSubscribed!\n").
 
-query_tweet(Sock, UserName) ->
-    io:fwrite("\n Querying Options:\n"),
-    io:fwrite("\n 1. My Mentions\n"),
-    io:fwrite("\n 2. Hashtag Search\n"),
-    io:fwrite("\n 3. Subscribed Users Tweets\n"),
-    {ok, [Option]} = io:fread("\nSpecify the task number you want to perform: ", "~s\n"),
+query_tweet(Sock, UserName, Option) ->
     if
         Option == "1" ->
             ok = gen_tcp:send(Sock, ["query", "," ,UserName, ",", "1"]);
