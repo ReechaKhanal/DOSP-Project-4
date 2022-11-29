@@ -124,8 +124,9 @@ query_tweet(Sock, UserName, Option) ->
             Hashtag = io:get_line("\nEnter the hahstag you want to search: "),
             ok = gen_tcp:send(Sock, ["query", "," ,UserName, ",","2",",", Hashtag]);
         true ->
-            Sub_UserName = io:get_line("\nWhose tweets do you want? "),
-            ok = gen_tcp:send(Sock, ["query", "," ,UserName, ",", "3",",",Sub_UserName])
+            % Sub_UserName = io:get_line("\nWhose tweets do you want? "),
+            % ok = gen_tcp:send(Sock, ["query", "," ,UserName, ",", "3",",",Sub_UserName])
+            ok = gen_tcp:send(Sock, ["query", "," ,UserName, ",", "3"])
     end,
     % Query = io:get_line("\nWhat are you looking for? "),
     % ok = gen_tcp:send(Sock, ["query", "," ,UserName, ",", Query]),

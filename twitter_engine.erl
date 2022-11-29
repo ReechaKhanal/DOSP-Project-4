@@ -76,6 +76,9 @@ do_recv(Socket, Table, Bs, Client_Socket_Mapping) ->
                     io:format("~p~n",[NewTweets]),
                     
                     ets:insert(Table, {UserName, [{"followers", CurrentFollowers}, {"tweets", NewTweets}]}),
+
+                    Output_After_Tweet = ets:lookup(Table, UserName),
+                    io:format("\nOutput after tweeting: ~p\n", [Output_After_Tweet]),
                   
                     sendMessage(Socket, Client_Socket_Mapping, Tweet, CurrentFollowers, UserName),
                     do_recv(Socket, Table, [UserName], Client_Socket_Mapping);
@@ -123,7 +126,7 @@ do_recv(Socket, Table, Bs, Client_Socket_Mapping) ->
                     Sub_User = string:strip(SubscribedUserName, right, $\n),
 
                     Output1 = ets:lookup(Table, Sub_User),
-                    io:format("Output: ~p\n", [Output1]),
+                    % io:format("Output: ~p\n", [Output1]),
 
                     if
                         Output1 == [] ->
@@ -131,7 +134,7 @@ do_recv(Socket, Table, Bs, Client_Socket_Mapping) ->
                         true ->
 
                             Val = ets:lookup(Table, Sub_User),
-                            io:format("~p~n",[Val]),
+                            % io:format("~p~n",[Val]),
                             Val3 = lists:nth(1, Val),
                             Val2 = element(2, Val3),
 
@@ -144,17 +147,22 @@ do_recv(Socket, Table, Bs, Client_Socket_Mapping) ->
                         
                             ets:insert(Table, {Sub_User, [{"followers", NewFollowers}, {"tweets", CurrentTweets}]}),
 
+                            Output2 = ets:lookup(Table, Sub_User),
+                            io:format("\nOutput after subscribing: ~p\n", [Output2]),
+
                             ok = gen_tcp:send(Socket, "Subscribed!"),
 
                             do_recv(Socket, Table, [UserName], Client_Socket_Mapping)
                     end,
                     io:format("\n ~p wants to subscribe to ~p\n", [UserName, Sub_User]),
+                    
                     ok = gen_tcp:send(Socket, "Subscribed!"),
                     do_recv(Socket, Table, [UserName], Client_Socket_Mapping);
 
                 Type == "query" ->
                     Option = binary_to_list(lists:nth(3, Data)),
                     UserName = binary_to_list(lists:nth(2, Data)),
+                    io:format("Query: The current username is -> ~p\n", [UserName]),
                     % Query = binary_to_list(lists:nth(3, Data)),
                     if
                         Option == "1" ->
@@ -165,8 +173,19 @@ do_recv(Socket, Table, Bs, Client_Socket_Mapping) ->
                             io:format("Hashtag: ~p\n", [Hashtag]);
                         true ->
                             io:fwrite("Subscribed User Search\n"),
-                            Sub_UserName = binary_to_list(lists:nth(4, Data)),
-                            io:format("Sub_UserName: ~p\n", [Sub_UserName])
+                            % Sub_UserName = binary_to_list(lists:nth(4, Data)),
+                            Sub_UserName = ets:first(Table),
+                            Sub_User = string:strip(Sub_UserName, right, $\n),
+                            io:format("Sub_UserName: ~p\n", [Sub_User]),
+                            Val = ets:lookup(Table, Sub_User),
+                            % io:format("~p~n",[Val]),
+                            Val3 = lists:nth(1, Val),
+                            Val2 = element(2, Val3),
+                            Val1 = maps:from_list(Val2),                            
+                            {ok, CurrentTweets} = maps:find("tweets",Val1),
+                            io:format("\n ~p : ", [Sub_User]),
+                            io:format("~p~n",[CurrentTweets]),
+                            searchWholeTable(Table, Sub_User, UserName)        
                     end,
                     io:format("\n ~p wants to query", [UserName]),
                     % Query_List = re:split(Query, " "),
@@ -208,6 +227,25 @@ searchAllTweets(Symbol, Table_List, Word) ->
     io:fwrite("Searching all tweets\n"),
     searchAllTweets(Symbol, Table_List, Word).
 
+searchWholeTable(Table, Key, UserName) ->
+    CurrentRow_Key = ets:next(Table, Key),
+    Val = ets:lookup(Table, CurrentRow_Key),
+    % io:format("~p~n",[Val]),
+    Val3 = lists:nth(1, Val),
+    Val2 = element(2, Val3),
+    Val1 = maps:from_list(Val2),                            
+    {ok, CurrentFollowers} = maps:find("followers",Val1),
+    IsMember = lists:member(UserName, CurrentFollowers),
+    if
+        IsMember == true ->
+            {ok, CurrentTweets} = maps:find("tweets",Val1),
+            io:format("\n ~p : ", [CurrentRow_Key]),
+            io:format("~p~n",[CurrentTweets]),
+            searchWholeTable(Table, CurrentRow_Key, UserName);
+        true ->
+            io:fwrite("\n No more tweets!\n")
+    end,
+    io:fwrite("\n Searching the whole table!\n").
 
 sendMessage(Socket, Client_Socket_Mapping, Tweet, Subscribers, UserName) ->
     if
@@ -226,7 +264,7 @@ sendMessage(Socket, Client_Socket_Mapping, Tweet, Subscribers, UserName) ->
             Client_Socket = element(2, Val3),
             io:format("\nClient Socket: ~p~n",[Client_Socket]),
             
-            ok = gen_tcp:send(Client_Socket, ["New tweet received!\n",",",UserName,":",Tweet]),
+            ok = gen_tcp:send(Client_Socket, ["New tweet received!\n",UserName,":",Tweet]),
             ok = gen_tcp:send(Socket, "Your tweet has been sent"),
             
             sendMessage(Socket, Client_Socket_Mapping, Tweet, Remaining_List, UserName)
