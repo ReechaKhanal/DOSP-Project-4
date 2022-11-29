@@ -1,1 +1,3 @@
-/*.beam
+client.beam
+twitter_engine.beam
+simulator.beam
