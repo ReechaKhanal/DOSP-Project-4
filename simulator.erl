@@ -38,7 +38,7 @@ checkAliveClients(Clients) ->
 
 % Function to spawn a client - and figure out its properties (UserName, NumTweets, NumSubscribe, PID)
 createClients(Count, NumClients, MaxSubcribers, Main_Table) ->    
-    UserName = list_to_integer(Count),
+    UserName = Count,
     NumTweets = round(floor(MaxSubcribers/Count)),
     NumSubscribe = round(floor(MaxSubcribers/(NumClients-Count+1))) - 1,
 

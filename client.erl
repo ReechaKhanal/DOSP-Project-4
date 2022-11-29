@@ -2,7 +2,54 @@
 -export[start/0, test/4].
 
 test(UserName, NumTweets, NumSubscribe, false) ->
-    io:fwrite("\nEntry Point for Simulator!\n").
+    io:fwrite("\nEntry Point for Simulator!\n"),
+
+    % connect with the server
+    PortNumber = 1204,
+    IPAddress = "localhost",
+    {ok, Sock} = gen_tcp:connect(IPAddress, PortNumber, [binary, {packet, 0}]),
+    
+    % register client
+    register_account(Sock, UserName),
+
+    % wait for registration confirmation from the server
+    receive
+        {tcp, Sock, Data} ->
+            io:format("User ~p registered on server", [Data])
+    end,
+
+    test_handler(Sock, UserName, NumTweets, NumSubscribe).
+
+test_handler(Sock, UserName, NumTweets, NumSubscribe) ->
+    
+    % Subscribe
+    if 
+        NumSubscribe > 0 ->
+            SubList = generate_subList(1, NumSubscribe, []),
+            handle_zipf_subscribe(Sock, UserName, SubList)
+    end,
+
+    % Mention
+    UserToMention = rand:uniform(list_to_integer(UserName)),
+    send_tweet(Sock, UserName, {"~p mentioning @~p in their tweet",[UserName, UserToMention]}),
+    %send(:global.whereis_name(:TwitterServer),{:tweet,"user#{userId} tweeting @#{userToMention}",userId}),
+
+    % Hashtag
+    send_tweet(Sock, UserName, {"~p says #HashTag in their tweet",[UserName]}).
+
+generate_subList(Count, NumSubscribe, List) ->
+        if
+            (Count == NumSubscribe) ->
+                [count | List];
+            true ->
+                generate_subList(Count+1, NumSubscribe, [Count | List])
+        end.
+
+handle_zipf_subscribe(Sock, UserName, SubList) ->
+
+    [{SubscribeUserName}|RemainingList] = SubList,
+    subscribe_to_user(Sock, UserName, SubscribeUserName),
+    handle_zipf_subscribe(Sock, UserName, RemainingList).
 
 start() ->
     io:fwrite("\n\n Hii, I am a new client\n\n"),
@@ -33,7 +80,9 @@ get_and_parse_user_input(Sock, UserName) ->
     % parse that command - register, subscribe <user_name>
     if 
         CommandType == "register" ->
-            UserName1 = register_account(Sock);
+            % Input user-name
+            {ok, [UserName]} = io:fread("\nEnter the User Name: ", "~s\n"),
+            UserName1 = register_account(Sock, UserName);
         CommandType == "tweet" ->
             if
                 UserName == "_" ->
@@ -86,10 +135,7 @@ get_and_parse_user_input(Sock, UserName) ->
     UserName1.
 
 
-register_account(Sock) ->
-
-    % Input user-name
-    {ok, [UserName]} = io:fread("\nEnter the User Name: ", "~s\n"),
+register_account(Sock, UserName) ->
     % send the server request
     io:format("SELF: ~p\n", [self()]),
     ok = gen_tcp:send(Sock, [["register", ",", UserName, ",", pid_to_list(self())]]),
