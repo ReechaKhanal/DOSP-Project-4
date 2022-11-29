@@ -1,16 +1,8 @@
 -module(client).
--export[start/0, test/1].
+-export[start/0, test/4].
 
-test(Id) ->
-    io:fwrite("\nEntry Point for Simulator!\n"), 
-    awaitTestCommands(Id).
-
-awaitTestCommands(Id) ->
-    io:fwrite("\nReceive and exectue commands from the simulator\n"),
-    receive
-        {_, {register, AllClients}} ->
-            "Register"
-    end.
+test(UserName, NumTweets, NumSubscribe, false) ->
+    io:fwrite("\nEntry Point for Simulator!\n").
 
 start() ->
     io:fwrite("\n\n Hii, I am a new client\n\n"),
