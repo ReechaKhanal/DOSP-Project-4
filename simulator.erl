@@ -3,19 +3,41 @@
 
 start() ->
     io:fwrite("\n\n Simulator Running\n\n"),
-    {ok, [Number_of_Clients]} = io:fread("\nNumber of clients to simulate: ", "~s\n"),
-    Clients = startClient(Number_of_Clients),
+    {ok, [NumClients]} = io:fread("\nNumber of clients to simulate: ", "~s\n"),
+    {ok, [MaxSubscribers]} = io:fread("\nMaximum Number of Subscribers a client can have: ", "~s\n"),
+    {ok, [DisconnectClients]} = io:fread("\nPercentage of clients to disconnect to simulate periods of live connection and disconnection ", "~s\n"),
 
-    CommandType = ["tweet", "retweet", "subscribe", "query"],
-    QueryType = ["1", "2", "3"],
+    Clients = startClient(NumClients),
 
-    Clients.
+    % register all clients:
+    registerClients(Clients, Clients),
+    
+    %start time
+    Start_Time = erlang:system_time(millisecond),
+    checkAliveClients(Clients),
+    %End time
+    End_Time = erlang:system_time(millisecond),
+    io:format("\nTime Taken to Converge: ~p milliseconds\n", [End_Time - Start_Time]).
 
-startClient(Number_of_Clients) ->
+checkAliveClients(Clients) ->
+    Alive_Clients = [{C, C_PID} || {C, C_PID} <- Clients, is_process_alive(C_PID) == true],
+    if
+        Alive_Clients == [] ->
+            io:format("\nCONVERGED: ");
+        true ->
+            checkAliveClients(Alive_Clients)
+    end.
+
+registerClients(Clients, AllClients) ->
+    [{_, ClientPID}|Remaning_Clients] = Clients,
+    ClientPID ! {self(), {register, AllClients}},
+    registerClients(Remaning_Clients, AllClients).
+
+startClient(NumClients) ->
     
     Clients = [  % { {Pid, Ref}, Id }
         {Id, spawn(client, test, [Id])}
-        || Id <- lists:seq(1, Number_of_Clients)
+        || Id <- lists:seq(1, NumClients)
     ],
     Clients.
 
